@@ -22,11 +22,11 @@
 
 1. Clone this repository:
    ```bash
-   git clone https://github.com/lnswlrd/companion-module-focusrite-clarett.git
+   git clone https://github.com/bitfocus/companion-module-focusrite-clarett.git
    ```
 2. Install dependencies:
    ```bash
-   npm install
+   yarn install
    ```
 3. In Companion, go to **Settings** → **Developer modules** → **Add** and select the cloned folder
 4. Add the module as a new connection
