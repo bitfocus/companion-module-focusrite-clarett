@@ -1,11 +1,11 @@
-import { InstanceBase, Regex, runEntrypoint, InstanceStatus } from '@companion-module/base'
+import { InstanceBase, Regex, InstanceStatus } from '@companion-module/base'
 import { FocusriteClient } from './focusrite-client.js'
 import { updateActions } from './actions.js'
 import { updateFeedbacks } from './feedbacks.js'
 import { updateVariables } from './variables.js'
 import { getPresets } from './presets.js'
 
-class FocusriteClarettInstance extends InstanceBase {
+export default class FocusriteClarettInstance extends InstanceBase {
 	constructor(internal) {
 		super(internal)
 	}
@@ -37,7 +37,8 @@ class FocusriteClarettInstance extends InstanceBase {
 		this.updateActions()
 		this.updateFeedbacks()
 		this.updateVariableDefinitions()
-		this.setPresetDefinitions(getPresets())
+		const { structure: presetStructure, presets: presetDefs } = getPresets()
+		this.setPresetDefinitions(presetStructure, presetDefs)
 
 		// Connect to Focusrite Control Server
 		await this.connectToServer()
@@ -99,7 +100,7 @@ class FocusriteClarettInstance extends InstanceBase {
 				this.updateVariableValues()
 				this.updateActions()
 				this.updateFeedbacks()
-				this.checkFeedbacks()
+				this.checkAllFeedbacks()
 			}
 		})
 
@@ -161,7 +162,7 @@ class FocusriteClarettInstance extends InstanceBase {
 		this.updateVariableValue(itemId, value)
 
 		// Check feedbacks
-		this.checkFeedbacks()
+		this.checkAllFeedbacks()
 	}
 
 	updateHardwareInputVariable(itemId, value) {
@@ -303,4 +304,4 @@ class FocusriteClarettInstance extends InstanceBase {
 	}
 }
 
-runEntrypoint(FocusriteClarettInstance, [])
+export const UpgradeScripts = []

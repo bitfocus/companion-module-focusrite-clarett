@@ -14,8 +14,7 @@ export function getPresets() {
 	// ============================================
 	for (let i = 1; i <= 8; i++) {
 		presets[`mute_input_${i}`] = {
-			type: 'button',
-			category: 'Input Mutes',
+			type: 'simple',
 			name: `Mute Input ${i}`,
 			style: {
 				text: `MUTE\\nIN ${i}`,
@@ -52,8 +51,7 @@ export function getPresets() {
 	// ============================================
 	for (let i = 1; i <= 8; i++) {
 		presets[`solo_input_${i}`] = {
-			type: 'button',
-			category: 'Input Solos',
+			type: 'simple',
 			name: `Solo Input ${i}`,
 			style: {
 				text: `SOLO\\nIN ${i}`,
@@ -90,8 +88,7 @@ export function getPresets() {
 	// ============================================
 	for (let i = 1; i <= 8; i++) {
 		presets[`phantom_${i}`] = {
-			type: 'button',
-			category: 'Phantom Power',
+			type: 'simple',
 			name: `Phantom ${i}`,
 			style: {
 				text: `48V\\nCH ${i}`,
@@ -128,8 +125,7 @@ export function getPresets() {
 	// ============================================
 	for (let i = 1; i <= 8; i++) {
 		presets[`air_${i}`] = {
-			type: 'button',
-			category: 'Air Mode',
+			type: 'simple',
 			name: `Air ${i}`,
 			style: {
 				text: `AIR\\nCH ${i}`,
@@ -166,8 +162,7 @@ export function getPresets() {
 	// ============================================
 	for (let i = 1; i <= 8; i++) {
 		presets[`mode_${i}`] = {
-			type: 'button',
-			category: 'Input Mode',
+			type: 'simple',
 			name: `Mode ${i}`,
 			style: {
 				text: `MODE\\nCH ${i}`,
@@ -223,8 +218,7 @@ export function getPresets() {
 	// ============================================
 	for (let i = 1; i <= 8; i++) {
 		presets[`pad_${i}`] = {
-			type: 'button',
-			category: 'Pad',
+			type: 'simple',
 			name: `Pad ${i}`,
 			style: {
 				text: `PAD\\nCH ${i}`,
@@ -261,8 +255,7 @@ export function getPresets() {
 	// ============================================
 	for (let i = 1; i <= 8; i++) {
 		presets[`hpf_${i}`] = {
-			type: 'button',
-			category: 'High Pass Filter',
+			type: 'simple',
 			name: `HPF ${i}`,
 			style: {
 				text: `HPF\\nCH ${i}`,
@@ -298,8 +291,7 @@ export function getPresets() {
 	// MONITOR PRESETS
 	// ============================================
 	presets['dim'] = {
-		type: 'button',
-		category: 'Monitor',
+		type: 'simple',
 		name: 'Dim',
 		style: {
 			text: 'DIM',
@@ -326,8 +318,7 @@ export function getPresets() {
 	}
 
 	presets['talkback'] = {
-		type: 'button',
-		category: 'Monitor',
+		type: 'simple',
 		name: 'Talkback',
 		style: {
 			text: 'TALK',
@@ -363,5 +354,69 @@ export function getPresets() {
 		],
 	}
 
-	return presets
+	return {
+		structure: [
+			{
+				id: 'inputs',
+				name: 'Inputs',
+				definitions: [
+					{
+						id: 'mutes',
+						type: 'simple',
+						name: 'Input Mutes',
+						presets: Array.from({ length: 8 }, (_, i) => `mute_input_${i + 1}`),
+					},
+					{
+						id: 'solos',
+						type: 'simple',
+						name: 'Input Solos',
+						presets: Array.from({ length: 8 }, (_, i) => `solo_input_${i + 1}`),
+					},
+					{
+						id: 'phantom',
+						type: 'simple',
+						name: 'Phantom Power',
+						presets: Array.from({ length: 8 }, (_, i) => `phantom_${i + 1}`),
+					},
+					{
+						id: 'air',
+						type: 'simple',
+						name: 'Air Mode',
+						presets: Array.from({ length: 8 }, (_, i) => `air_${i + 1}`),
+					},
+					{
+						id: 'mode',
+						type: 'simple',
+						name: 'Input Mode',
+						presets: Array.from({ length: 8 }, (_, i) => `mode_${i + 1}`),
+					},
+					{
+						id: 'pad',
+						type: 'simple',
+						name: 'Pad',
+						presets: Array.from({ length: 8 }, (_, i) => `pad_${i + 1}`),
+					},
+					{
+						id: 'hpf',
+						type: 'simple',
+						name: 'High Pass Filter',
+						presets: Array.from({ length: 8 }, (_, i) => `hpf_${i + 1}`),
+					},
+				],
+			},
+			{
+				id: 'monitor',
+				name: 'Monitor',
+				definitions: [
+					{
+						id: 'monitor_controls',
+						type: 'simple',
+						name: 'Monitor Controls',
+						presets: ['dim', 'talkback'],
+					},
+				],
+			},
+		],
+		presets,
+	}
 }
