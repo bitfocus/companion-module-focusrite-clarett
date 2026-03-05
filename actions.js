@@ -267,6 +267,88 @@ export function updateActions(self) {
 			},
 		},
 
+		adjust_fader: {
+			name: 'Adjust Mixer Fader (relative)',
+			options: [
+				{
+					id: 'channel',
+					type: 'number',
+					label: 'Input Channel',
+					default: 1,
+					min: 1,
+					max: 30,
+				},
+				{
+					id: 'mix',
+					type: 'number',
+					label: 'Mix',
+					default: 1,
+					min: 1,
+					max: 10,
+				},
+				{
+					id: 'step',
+					type: 'number',
+					label: 'Step dB (positive = up, negative = down)',
+					default: 1,
+					min: -128,
+					max: 128,
+				},
+			],
+			callback: async (event) => {
+				const ch = event.options.channel - 1
+				const mixIdx = event.options.mix - 1
+				const mix = self.mixes?.[mixIdx]
+				const input = mix?.inputs?.[ch]
+				const itemId = input?.gain
+
+				if (!itemId) {
+					self.log('warn', `No fader control for mix ${event.options.mix} channel ${event.options.channel}`)
+					return
+				}
+
+				const current = parseFloat(self.client.getItemValue(self.deviceId, itemId) ?? '0')
+				const next = Math.min(6, Math.max(-128, current + event.options.step))
+				self.setValue(itemId, next.toString())
+			},
+		},
+
+		adjust_output_volume: {
+			name: 'Adjust Output Volume (relative)',
+			options: [
+				{
+					id: 'channel',
+					type: 'number',
+					label: 'Output Channel',
+					default: 1,
+					min: 1,
+					max: 10,
+				},
+				{
+					id: 'step',
+					type: 'number',
+					label: 'Step dB (positive = up, negative = down)',
+					default: 1,
+					min: -128,
+					max: 128,
+				},
+			],
+			callback: async (event) => {
+				const ch = event.options.channel - 1
+				const output = self.outputs?.[ch]
+				const itemId = output?.volume
+
+				if (!itemId) {
+					self.log('warn', `No volume control for output ${event.options.channel}`)
+					return
+				}
+
+				const current = parseFloat(self.client.getItemValue(self.deviceId, itemId) ?? '0')
+				const next = Math.min(6, Math.max(-128, current + event.options.step))
+				self.setValue(itemId, next.toString())
+			},
+		},
+
 		// ============================================
 		// PAN CONTROLS
 		// ============================================
