@@ -1,7 +1,6 @@
 {
   "name": "companion-module-focusrite-clarett",
-  "version": "2.0.0",
-  "author": "Linus Wileryd",
+  "version": "2.0.1",
   "main": "main.js",
   "type": "module",
   "scripts": {
@@ -13,12 +12,8 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/lnswlrd/companion-module-focusrite-clarett.git"
+    "url": "git+https://github.com/bitfocus/companion-module-focusrite-clarett.git"
   },
-  "bugs": {
-    "url": "https://github.com/lnswlrd/companion-module-focusrite-clarett/issues"
-  },
-  "homepage": "https://github.com/lnswlrd/companion-module-focusrite-clarett#readme",
   "dependencies": {
     "@companion-module/base": "^2.0.0",
     "xml2js": "^0.6.2"

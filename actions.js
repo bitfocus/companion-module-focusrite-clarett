@@ -70,7 +70,7 @@ export function updateActions(self) {
 					default: 'toggle',
 				},
 			],
-			callback: async (event) => {
+			callback: (event) => {
 				const ch = event.options.channel - 1
 				const mixIdx = event.options.mix - 1
 				const mix = self.mixes?.[mixIdx]
@@ -114,7 +114,7 @@ export function updateActions(self) {
 					default: 'toggle',
 				},
 			],
-			callback: async (event) => {
+			callback: (event) => {
 				const pairs = (self.outputs || []).filter((o) => o.stereoName)
 				const output = pairs[Number(event.options.channel)]
 				const itemId = output?.monitor ? self.monitoring?.mute : output?.mute
@@ -166,7 +166,7 @@ export function updateActions(self) {
 					default: 'toggle',
 				},
 			],
-			callback: async (event) => {
+			callback: (event) => {
 				const ch = event.options.channel - 1
 				const mixIdx = event.options.mix - 1
 				const mix = self.mixes?.[mixIdx]
@@ -217,7 +217,7 @@ export function updateActions(self) {
 					max: 6,
 				},
 			],
-			callback: async (event) => {
+			callback: (event) => {
 				const ch = event.options.channel - 1
 				const mixIdx = event.options.mix - 1
 				const mix = self.mixes?.[mixIdx]
@@ -253,7 +253,7 @@ export function updateActions(self) {
 					max: 6,
 				},
 			],
-			callback: async (event) => {
+			callback: (event) => {
 				const ch = event.options.channel - 1
 				const output = self.outputs?.[ch]
 				const itemId = output?.volume
@@ -295,7 +295,7 @@ export function updateActions(self) {
 					max: 128,
 				},
 			],
-			callback: async (event) => {
+			callback: (event) => {
 				const ch = event.options.channel - 1
 				const mixIdx = event.options.mix - 1
 				const mix = self.mixes?.[mixIdx]
@@ -333,7 +333,7 @@ export function updateActions(self) {
 					max: 128,
 				},
 			],
-			callback: async (event) => {
+			callback: (event) => {
 				const ch = event.options.channel - 1
 				const output = self.outputs?.[ch]
 				const itemId = output?.volume
@@ -380,7 +380,7 @@ export function updateActions(self) {
 					max: 100,
 				},
 			],
-			callback: async (event) => {
+			callback: (event) => {
 				const ch = event.options.channel - 1
 				const mixIdx = event.options.mix - 1
 				const mix = self.mixes?.[mixIdx]
@@ -425,7 +425,7 @@ export function updateActions(self) {
 					default: 'toggle',
 				},
 			],
-			callback: async (event) => {
+			callback: (event) => {
 				const ch = event.options.channel
 				// Use actual Air control ID from hardware inputs if available
 				const hwInput = self.hardwareInputs?.[ch - 1]
@@ -462,7 +462,7 @@ export function updateActions(self) {
 					default: 'Mic',
 				},
 			],
-			callback: async (event) => {
+			callback: (event) => {
 				const ch = event.options.channel
 				const hwInput = self.hardwareInputs?.[ch - 1]
 
@@ -496,7 +496,7 @@ export function updateActions(self) {
 					max: 8,
 				},
 			],
-			callback: async (event) => {
+			callback: (event) => {
 				const ch = event.options.channel
 				const hwInput = self.hardwareInputs?.[ch - 1]
 
@@ -534,7 +534,7 @@ export function updateActions(self) {
 					default: 'toggle',
 				},
 			],
-			callback: async (event) => {
+			callback: (event) => {
 				const itemId = self.monitoring?.dim
 				if (!itemId) {
 					self.log('warn', 'No dim control found in monitoring section')
@@ -569,7 +569,7 @@ export function updateActions(self) {
 					default: 'toggle',
 				},
 			],
-			callback: async (event) => {
+			callback: (event) => {
 				const itemId = event.options.itemId
 				if (!itemId) {
 					self.log('warn', 'No talkback item ID configured')
@@ -610,7 +610,7 @@ export function updateActions(self) {
 					default: 'toggle',
 				},
 			],
-			callback: async (event) => {
+			callback: (event) => {
 				const ch = event.options.channel
 				const hwInput = self.hardwareInputs?.[ch - 1]
 				const itemId = hwInput?.stereo
@@ -647,7 +647,7 @@ export function updateActions(self) {
 					default: '',
 				},
 			],
-			callback: async (event) => {
+			callback: (event) => {
 				if (event.options.itemId && event.options.value !== undefined) {
 					self.setValue(event.options.itemId, event.options.value)
 				}
@@ -664,7 +664,7 @@ export function updateActions(self) {
 					default: '',
 				},
 			],
-			callback: async (event) => {
+			callback: (event) => {
 				if (event.options.itemId) {
 					self.toggleValue(event.options.itemId)
 				}
