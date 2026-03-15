@@ -2,13 +2,13 @@
   "$schema": "../node_modules/@companion-module/base/assets/manifest.schema.json",
   "type": "connection",
   "id": "focusrite-clarett",
-  "name": "Focusrite Clarett",
+  "name": "focusrite-clarett",
   "shortname": "Clarett",
   "description": "Control Focusrite Clarett audio interfaces via FocusriteControlServer",
-  "version": "2.0.0",
+  "version": "0.0.0",
   "license": "MIT",
-  "repository": "git+https://github.com/lnswlrd/companion-module-focusrite-clarett.git",
-  "bugs": "https://github.com/lnswlrd/companion-module-focusrite-clarett/issues",
+  "repository": "git+https://github.com/bitfocus/companion-module-focusrite-clarett.git",
+  "bugs": "https://github.com/bitfocus/companion-module-focusrite-clarett/issues",
   "maintainers": [
     {
       "name": "Linus Wileryd",
