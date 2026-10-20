@@ -5,6 +5,7 @@
  */
 
 import { combineRgb } from '@companion-module/base'
+import { outputFromMuteChoice, outputMuteChoices, outputMuteItem } from './output-controls.js'
 
 export function updateFeedbacks(self) {
 	self.setFeedbackDefinitions({
@@ -61,17 +62,14 @@ export function updateFeedbacks(self) {
 				{
 					id: 'channel',
 					type: 'dropdown',
-					label: 'Output Pair',
-					choices: (self.outputs || [])
-						.filter((o) => o.stereoName)
-						.map((o, i) => ({ id: String(i), label: o.stereoName })),
+					label: 'Output',
+					choices: outputMuteChoices(self.outputs, self.items),
 					default: '0',
 				},
 			],
 			callback: (feedback) => {
-				const pairs = (self.outputs || []).filter((o) => o.stereoName)
-				const output = pairs[Number(feedback.options.channel)]
-				const itemId = output?.monitor ? self.monitoring?.mute : output?.mute
+				const output = outputFromMuteChoice(self.outputs, feedback.options.channel)
+				const itemId = outputMuteItem(self.outputs, self.items, self.monitoring, output)
 				if (!itemId) return false
 				const item = self.items.get(itemId)
 				return item && (item.value === 'true' || item.value === '1')
@@ -148,6 +146,37 @@ export function updateFeedbacks(self) {
 				if (!itemId) return false
 				const item = self.items.get(itemId)
 				return item && (item.value === 'true' || item.value === '1')
+			},
+		},
+
+		pad_enabled: {
+			name: 'Pad Enabled',
+			type: 'boolean',
+			description: 'Change button style when the -10dB pad is on',
+			defaultStyle: {
+				bgcolor: combineRgb(0, 102, 204), // Blue
+				color: combineRgb(255, 255, 255),
+			},
+			options: [
+				{
+					id: 'channel',
+					type: 'number',
+					label: 'Input Channel',
+					default: 1,
+					min: 1,
+					max: 8,
+				},
+			],
+			callback: (feedback) => {
+				const ch = feedback.options.channel
+				const hwInput = self.hardwareInputs?.[ch - 1]
+				const itemId = hwInput?.pad
+				if (!itemId) return false
+				// An item we have never been told about means off. The declared
+				// type here is boolean, so return one rather than leaking
+				// undefined the way the older feedbacks in this file do.
+				const item = self.items.get(itemId)
+				return item?.value === 'true' || item?.value === '1'
 			},
 		},
 

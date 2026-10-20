@@ -4,6 +4,8 @@
  * Control actions for mixer inputs, outputs, routing, and hardware controls
  */
 
+import { outputControl, outputFromMuteChoice, outputMuteChoices, outputMuteItem } from './output-controls.js'
+
 export function updateActions(self) {
 	// Build dynamic choices from device items
 	const inputChoices = []
@@ -96,10 +98,8 @@ export function updateActions(self) {
 				{
 					id: 'channel',
 					type: 'dropdown',
-					label: 'Output Pair',
-					choices: (self.outputs || [])
-						.filter((o) => o.stereoName)
-						.map((o, i) => ({ id: String(i), label: o.stereoName })),
+					label: 'Output',
+					choices: outputMuteChoices(self.outputs, self.items),
 					default: '0',
 				},
 				{
@@ -115,12 +115,11 @@ export function updateActions(self) {
 				},
 			],
 			callback: (event) => {
-				const pairs = (self.outputs || []).filter((o) => o.stereoName)
-				const output = pairs[Number(event.options.channel)]
-				const itemId = output?.monitor ? self.monitoring?.mute : output?.mute
+				const output = outputFromMuteChoice(self.outputs, event.options.channel)
+				const itemId = outputMuteItem(self.outputs, self.items, self.monitoring, output)
 
 				if (!itemId) {
-					self.log('warn', `No mute control for output pair ${event.options.channel}`)
+					self.log('warn', `No mute control for output ${output?.name ?? event.options.channel}`)
 					return
 				}
 
@@ -256,7 +255,9 @@ export function updateActions(self) {
 			callback: (event) => {
 				const ch = event.options.channel - 1
 				const output = self.outputs?.[ch]
-				const itemId = output?.volume
+				// A right channel follows its left partner only while the pair is
+				// linked. Unlinked, it has a volume of its own.
+				const itemId = outputControl(self.outputs, self.items, output, 'volume')
 
 				if (!itemId) {
 					self.log('warn', `No volume control for output ${event.options.channel}`)
@@ -336,7 +337,9 @@ export function updateActions(self) {
 			callback: (event) => {
 				const ch = event.options.channel - 1
 				const output = self.outputs?.[ch]
-				const itemId = output?.volume
+				// A right channel follows its left partner only while the pair is
+				// linked. Unlinked, it has a volume of its own.
+				const itemId = outputControl(self.outputs, self.items, output, 'volume')
 
 				if (!itemId) {
 					self.log('warn', `No volume control for output ${event.options.channel}`)
@@ -427,9 +430,63 @@ export function updateActions(self) {
 			],
 			callback: (event) => {
 				const ch = event.options.channel
-				// Use actual Air control ID from hardware inputs if available
 				const hwInput = self.hardwareInputs?.[ch - 1]
-				const itemId = hwInput?.air || `input-${ch}/air`
+				const itemId = hwInput?.air
+
+				// Only report what the device actually exposes. Falling back to a
+				// made-up item id sends a command the server discards in silence,
+				// which is indistinguishable from the module being broken. Plenty
+				// of supported models have no Air at all: on a Scarlett 18i20
+				// (2nd Gen), for one, the preamps are controlled on the front panel
+				// and report no software controls.
+				if (!itemId) {
+					self.log('warn', `No Air control for input ${event.options.channel} on this device`)
+					return
+				}
+
+				if (event.options.state === 'toggle') {
+					self.toggleValue(itemId)
+				} else {
+					self.setValue(itemId, event.options.state === 'on' ? 'true' : 'false')
+				}
+			},
+		},
+
+		set_pad: {
+			name: 'Pad (-10dB)',
+			options: [
+				{
+					id: 'channel',
+					type: 'number',
+					label: 'Input Channel',
+					default: 1,
+					min: 1,
+					max: 8,
+				},
+				{
+					id: 'state',
+					type: 'dropdown',
+					label: 'State',
+					choices: [
+						{ id: 'on', label: 'On' },
+						{ id: 'off', label: 'Off' },
+						{ id: 'toggle', label: 'Toggle' },
+					],
+					default: 'toggle',
+				},
+			],
+			callback: (event) => {
+				const ch = event.options.channel
+				const hwInput = self.hardwareInputs?.[ch - 1]
+				const itemId = hwInput?.pad
+
+				// Pad is commonly present on only some inputs. A Scarlett 18i8
+				// (3rd Gen) reports it on its four preamps and not on the four
+				// line inputs, so a missing control is normal rather than an error.
+				if (!itemId) {
+					self.log('warn', `No pad control for input ${event.options.channel} on this device`)
+					return
+				}
 
 				if (event.options.state === 'toggle') {
 					self.toggleValue(itemId)

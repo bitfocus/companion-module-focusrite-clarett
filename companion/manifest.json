@@ -1,43 +1,43 @@
 {
-  "$schema": "../node_modules/@companion-module/base/assets/manifest.schema.json",
-  "type": "connection",
-  "id": "focusrite-clarett",
-  "name": "focusrite-clarett",
-  "shortname": "Clarett",
-  "description": "Control Focusrite Clarett audio interfaces via FocusriteControlServer",
-  "version": "0.0.0",
-  "license": "MIT",
-  "repository": "git+https://github.com/bitfocus/companion-module-focusrite-clarett.git",
-  "bugs": "https://github.com/bitfocus/companion-module-focusrite-clarett/issues",
-  "maintainers": [
-    {
-      "name": "Linus Wileryd",
-      "email": "linus@cutup.se"
-    }
-  ],
-  "legacyIds": [],
-  "runtime": {
-    "type": "node22",
-    "api": "nodejs-ipc",
-    "apiVersion": "0.0.0",
-    "entrypoint": "../main.js"
-  },
-  "manufacturer": "Focusrite",
-  "products": [
-    "Clarett 8PreX",
-    "Clarett 8Pre",
-    "Clarett 4Pre",
-    "Clarett 2Pre",
-    "Clarett+ 8Pre",
-    "Clarett+ 4Pre",
-    "Clarett+ 2Pre"
-  ],
-  "keywords": [
-    "Audio",
-    "Interface",
-    "Focusrite",
-    "Clarett",
-    "Mixer",
-    "Thunderbolt"
-  ]
+	"$schema": "../node_modules/@companion-module/base/assets/manifest.schema.json",
+	"type": "connection",
+	"id": "focusrite-clarett",
+	"name": "focusrite-clarett",
+	"shortname": "Clarett",
+	"description": "Control Focusrite Clarett and Scarlett audio interfaces via FocusriteControlServer",
+	"version": "0.0.0",
+	"license": "MIT",
+	"repository": "git+https://github.com/bitfocus/companion-module-focusrite-clarett.git",
+	"bugs": "https://github.com/bitfocus/companion-module-focusrite-clarett/issues",
+	"maintainers": [
+		{
+			"name": "Linus Wileryd",
+			"email": "linus@cutup.se"
+		}
+	],
+	"legacyIds": [],
+	"runtime": {
+		"type": "node22",
+		"api": "nodejs-ipc",
+		"apiVersion": "0.0.0",
+		"entrypoint": "../main.js"
+	},
+	"manufacturer": "Focusrite",
+	"products": [
+		"Clarett 8PreX",
+		"Clarett 8Pre",
+		"Clarett 4Pre",
+		"Clarett 2Pre",
+		"Clarett+ 8Pre",
+		"Clarett+ 4Pre",
+		"Clarett+ 2Pre",
+		"Scarlett 18i20",
+		"Scarlett 18i8",
+		"Scarlett 18i6",
+		"Scarlett 8i6",
+		"Scarlett 6i6",
+		"Scarlett 4i4",
+		"Scarlett 2i2"
+	],
+	"keywords": ["Audio", "Interface", "Focusrite", "Clarett", "Scarlett", "Mixer", "Thunderbolt", "USB"]
 }

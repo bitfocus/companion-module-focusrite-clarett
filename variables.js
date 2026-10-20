@@ -9,6 +9,8 @@ export function updateVariables(self) {
 		// Device info
 		device_name: { name: 'Device Name' },
 		device_model: { name: 'Device Model' },
+		device_class: { name: 'Device Family (Clarett / Scarlett)' },
+		device_serial: { name: 'Device Serial Number' },
 		connection_status: { name: 'Connection Status' },
 
 		// Input mutes
@@ -60,8 +62,10 @@ export function updateVariables(self) {
 
 	// Set initial values
 	self.setVariableValues({
-		device_name: self.deviceInfo?.name || 'Not connected',
+		device_name: self.deviceInfo?.nickname || self.deviceInfo?.model || 'Not connected',
 		device_model: self.deviceInfo?.model || '',
+		device_class: self.deviceInfo?.deviceClass || '',
+		device_serial: self.deviceInfo?.serial || '',
 		connection_status: self.client?.connected ? 'Connected' : 'Disconnected',
 	})
 }

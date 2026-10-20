@@ -1,422 +1,228 @@
 /**
- * Focusrite Clarett Presets
+ * Focusrite Clarett / Scarlett Presets
  *
- * Pre-configured buttons for common operations
+ * Pre-configured buttons for common operations.
+ *
+ * Presets are built from what the connected device actually reports, not from a
+ * fixed list. The supported interfaces differ widely in what they expose: a
+ * Scarlett 18i20 (2nd Gen), for instance, controls its preamps from the front
+ * panel and reports no Air or input mode at all, while its mixer offers five
+ * mixes of eighteen inputs. Offering buttons for controls that are not there
+ * gives the user a page of keys that quietly do nothing.
+ *
+ * This runs once at startup, when nothing is known and the result is empty, and
+ * again on device arrival once the structure has been parsed.
  */
 
 import { combineRgb } from '@companion-module/base'
 
-export function getPresets() {
-	const presets = {}
+const WHITE = combineRgb(255, 255, 255)
+const BLACK = combineRgb(0, 0, 0)
 
-	// ============================================
-	// INPUT MUTE PRESETS (Mix 1)
-	// ============================================
-	for (let i = 1; i <= 8; i++) {
-		presets[`mute_input_${i}`] = {
+/**
+ * Build the preset palette for the connected device.
+ *
+ * @param {object} [self] The module instance, or nothing before a device arrives.
+ * @returns {{ structure: object[], presets: object }}
+ */
+export function getPresets(self) {
+	const presets = {}
+	const categories = []
+
+	const mixes = self?.mixes || []
+	const hardwareInputs = self?.hardwareInputs || []
+	const monitoring = self?.monitoring || {}
+
+	// Mixer presets follow the first mix, which is the one the corresponding
+	// actions default to. Channel counts come from the mix itself rather than a
+	// fixed eight, since these devices range from two inputs to eighteen.
+	const firstMix = mixes[0]
+	const mixInputs = firstMix?.inputs || []
+
+	// ---------------------------------------------------------------- mutes
+	const muteChannels = channelsWith(mixInputs, 'mute')
+	for (const ch of muteChannels) {
+		presets[`mute_input_${ch}`] = {
 			type: 'simple',
-			name: `Mute Input ${i}`,
-			style: {
-				text: `MUTE\\nIN ${i}`,
-				size: '14',
-				color: combineRgb(255, 255, 255),
-				bgcolor: combineRgb(0, 0, 0),
-			},
-			steps: [
-				{
-					down: [
-						{
-							actionId: 'mute_input',
-							options: { channel: i, mix: 1, state: 'toggle' },
-						},
-					],
-					up: [],
-				},
-			],
+			name: `Mute Input ${ch}`,
+			style: { text: `MUTE\\nIN ${ch}`, size: '14', color: WHITE, bgcolor: BLACK },
+			steps: [{ down: [{ actionId: 'mute_input', options: { channel: ch, mix: 1, state: 'toggle' } }], up: [] }],
 			feedbacks: [
 				{
 					feedbackId: 'input_muted',
-					options: { channel: i, mix: 1 },
-					style: {
-						bgcolor: combineRgb(255, 0, 0),
-						color: combineRgb(255, 255, 255),
-					},
+					options: { channel: ch, mix: 1 },
+					style: { bgcolor: combineRgb(255, 0, 0), color: WHITE },
 				},
 			],
 		}
 	}
 
-	// ============================================
-	// INPUT SOLO PRESETS (Mix 1)
-	// ============================================
-	for (let i = 1; i <= 8; i++) {
-		presets[`solo_input_${i}`] = {
+	// ---------------------------------------------------------------- solos
+	const soloChannels = channelsWith(mixInputs, 'solo')
+	for (const ch of soloChannels) {
+		presets[`solo_input_${ch}`] = {
 			type: 'simple',
-			name: `Solo Input ${i}`,
-			style: {
-				text: `SOLO\\nIN ${i}`,
-				size: '14',
-				color: combineRgb(255, 255, 255),
-				bgcolor: combineRgb(0, 0, 0),
-			},
-			steps: [
-				{
-					down: [
-						{
-							actionId: 'solo_input',
-							options: { channel: i, mix: 1, state: 'toggle' },
-						},
-					],
-					up: [],
-				},
-			],
+			name: `Solo Input ${ch}`,
+			style: { text: `SOLO\\nIN ${ch}`, size: '14', color: WHITE, bgcolor: BLACK },
+			steps: [{ down: [{ actionId: 'solo_input', options: { channel: ch, mix: 1, state: 'toggle' } }], up: [] }],
 			feedbacks: [
 				{
 					feedbackId: 'input_soloed',
-					options: { channel: i, mix: 1 },
-					style: {
-						bgcolor: combineRgb(255, 255, 0),
-						color: combineRgb(0, 0, 0),
-					},
+					options: { channel: ch, mix: 1 },
+					style: { bgcolor: combineRgb(255, 255, 0), color: BLACK },
 				},
 			],
 		}
 	}
 
-	// ============================================
-	// PHANTOM POWER PRESETS
-	// ============================================
-	for (let i = 1; i <= 8; i++) {
-		presets[`phantom_${i}`] = {
+	// ------------------------------------------------------------------ air
+	const airChannels = channelsWith(hardwareInputs, 'air')
+	for (const ch of airChannels) {
+		presets[`air_${ch}`] = {
 			type: 'simple',
-			name: `Phantom ${i}`,
-			style: {
-				text: `48V\\nCH ${i}`,
-				size: '14',
-				color: combineRgb(255, 255, 255),
-				bgcolor: combineRgb(0, 0, 0),
-			},
-			steps: [
-				{
-					down: [
-						{
-							actionId: 'set_phantom',
-							options: { channel: i, state: 'toggle' },
-						},
-					],
-					up: [],
-				},
-			],
-			feedbacks: [
-				{
-					feedbackId: 'phantom_enabled',
-					options: { channel: i },
-					style: {
-						bgcolor: combineRgb(255, 128, 0),
-						color: combineRgb(0, 0, 0),
-					},
-				},
-			],
-		}
-	}
-
-	// ============================================
-	// AIR MODE PRESETS
-	// ============================================
-	for (let i = 1; i <= 8; i++) {
-		presets[`air_${i}`] = {
-			type: 'simple',
-			name: `Air ${i}`,
-			style: {
-				text: `AIR\\nCH ${i}`,
-				size: '14',
-				color: combineRgb(0, 0, 0),
-				bgcolor: combineRgb(64, 64, 64),
-			},
-			steps: [
-				{
-					down: [
-						{
-							actionId: 'set_air',
-							options: { channel: i, state: 'toggle' },
-						},
-					],
-					up: [],
-				},
-			],
+			name: `Air ${ch}`,
+			style: { text: `AIR\\nCH ${ch}`, size: '14', color: WHITE, bgcolor: BLACK },
+			steps: [{ down: [{ actionId: 'set_air', options: { channel: ch, state: 'toggle' } }], up: [] }],
 			feedbacks: [
 				{
 					feedbackId: 'air_enabled',
-					options: { channel: i },
-					style: {
-						bgcolor: combineRgb(255, 204, 0), // Yellow like Clarett LED
-						color: combineRgb(0, 0, 0),
-					},
+					options: { channel: ch },
+					style: { bgcolor: combineRgb(255, 204, 0), color: BLACK },
 				},
 			],
 		}
 	}
 
-	// ============================================
-	// INPUT MODE PRESETS
-	// ============================================
-	for (let i = 1; i <= 8; i++) {
-		presets[`mode_${i}`] = {
+	// ------------------------------------------------------------------ pad
+	const padChannels = channelsWith(hardwareInputs, 'pad')
+	for (const ch of padChannels) {
+		presets[`pad_${ch}`] = {
 			type: 'simple',
-			name: `Mode ${i}`,
-			style: {
-				text: `MODE\\nCH ${i}`,
-				size: '14',
-				color: combineRgb(255, 255, 255),
-				bgcolor: combineRgb(64, 64, 64),
-			},
-			steps: [
-				{
-					down: [
-						{
-							actionId: 'cycle_mode',
-							options: { channel: i },
-						},
-					],
-					up: [],
-				},
-			],
-			feedbacks: [
-				{
-					feedbackId: 'mode_mic',
-					options: { channel: i },
-					style: {
-						bgcolor: combineRgb(255, 0, 0), // Bright red
-						color: combineRgb(255, 255, 255),
-						text: `MIC\\nCH ${i}`,
-					},
-				},
-				{
-					feedbackId: 'mode_line',
-					options: { channel: i },
-					style: {
-						bgcolor: combineRgb(102, 0, 0), // Dark red
-						color: combineRgb(255, 255, 255),
-						text: `LINE\\nCH ${i}`,
-					},
-				},
-				{
-					feedbackId: 'mode_inst',
-					options: { channel: i },
-					style: {
-						bgcolor: combineRgb(255, 102, 170), // Pink
-						color: combineRgb(0, 0, 0),
-						text: `INST\\nCH ${i}`,
-					},
-				},
-			],
-		}
-	}
-
-	// ============================================
-	// PAD PRESETS
-	// ============================================
-	for (let i = 1; i <= 8; i++) {
-		presets[`pad_${i}`] = {
-			type: 'simple',
-			name: `Pad ${i}`,
-			style: {
-				text: `PAD\\nCH ${i}`,
-				size: '14',
-				color: combineRgb(255, 255, 255),
-				bgcolor: combineRgb(0, 0, 0),
-			},
-			steps: [
-				{
-					down: [
-						{
-							actionId: 'set_pad',
-							options: { channel: i, state: 'toggle' },
-						},
-					],
-					up: [],
-				},
-			],
+			name: `Pad ${ch}`,
+			style: { text: `PAD\\nCH ${ch}`, size: '14', color: WHITE, bgcolor: BLACK },
+			steps: [{ down: [{ actionId: 'set_pad', options: { channel: ch, state: 'toggle' } }], up: [] }],
 			feedbacks: [
 				{
 					feedbackId: 'pad_enabled',
-					options: { channel: i },
-					style: {
-						bgcolor: combineRgb(0, 128, 255),
-						color: combineRgb(255, 255, 255),
-					},
+					options: { channel: ch },
+					style: { bgcolor: combineRgb(0, 102, 204), color: WHITE },
 				},
 			],
 		}
 	}
 
-	// ============================================
-	// HPF PRESETS
-	// ============================================
-	for (let i = 1; i <= 8; i++) {
-		presets[`hpf_${i}`] = {
+	// ----------------------------------------------------------- input mode
+	const modeChannels = channelsWith(hardwareInputs, 'mode')
+	for (const ch of modeChannels) {
+		presets[`mode_${ch}`] = {
 			type: 'simple',
-			name: `HPF ${i}`,
-			style: {
-				text: `HPF\\nCH ${i}`,
-				size: '14',
-				color: combineRgb(255, 255, 255),
-				bgcolor: combineRgb(0, 0, 0),
-			},
-			steps: [
-				{
-					down: [
-						{
-							actionId: 'set_hpf',
-							options: { channel: i, state: 'toggle' },
-						},
-					],
-					up: [],
-				},
-			],
+			name: `Mode ${ch}`,
+			style: { text: `MODE\\nCH ${ch}`, size: '14', color: WHITE, bgcolor: combineRgb(64, 64, 64) },
+			steps: [{ down: [{ actionId: 'cycle_mode', options: { channel: ch } }], up: [] }],
 			feedbacks: [
 				{
-					feedbackId: 'hpf_enabled',
-					options: { channel: i },
-					style: {
-						bgcolor: combineRgb(128, 0, 255),
-						color: combineRgb(255, 255, 255),
-					},
+					feedbackId: 'mode_mic',
+					options: { channel: ch },
+					style: { bgcolor: combineRgb(255, 0, 0), color: WHITE, text: `MIC\\nCH ${ch}` },
+				},
+				{
+					feedbackId: 'mode_line',
+					options: { channel: ch },
+					style: { bgcolor: combineRgb(102, 0, 0), color: WHITE, text: `LINE\\nCH ${ch}` },
+				},
+				{
+					feedbackId: 'mode_inst',
+					options: { channel: ch },
+					style: { bgcolor: combineRgb(255, 102, 170), color: BLACK, text: `INST\\nCH ${ch}` },
 				},
 			],
 		}
 	}
 
-	// ============================================
-	// MONITOR PRESETS
-	// ============================================
-	presets['dim'] = {
-		type: 'simple',
-		name: 'Dim',
-		style: {
-			text: 'DIM',
-			size: '18',
-			color: combineRgb(255, 255, 255),
-			bgcolor: combineRgb(0, 0, 0),
-		},
-		steps: [
-			{
-				down: [{ actionId: 'set_dim', options: { state: 'toggle' } }],
-				up: [],
-			},
-		],
-		feedbacks: [
-			{
-				feedbackId: 'dim_enabled',
-				options: {},
-				style: {
-					bgcolor: combineRgb(180, 80, 0),
-					color: combineRgb(255, 255, 255),
+	// -------------------------------------------------------------- monitor
+	if (monitoring.dim) {
+		presets['dim'] = {
+			type: 'simple',
+			name: 'Dim',
+			style: { text: 'DIM', size: '18', color: WHITE, bgcolor: BLACK },
+			steps: [{ down: [{ actionId: 'set_dim', options: { state: 'toggle' } }], up: [] }],
+			feedbacks: [
+				{
+					feedbackId: 'dim_enabled',
+					options: {},
+					style: { bgcolor: combineRgb(180, 80, 0), color: WHITE },
 				},
-			},
-		],
+			],
+		}
 	}
 
-	presets['talkback'] = {
-		type: 'simple',
-		name: 'Talkback',
-		style: {
-			text: 'TALK',
-			size: '18',
-			color: combineRgb(255, 255, 255),
-			bgcolor: combineRgb(0, 0, 0),
-		},
-		steps: [
-			{
-				down: [
-					{
-						actionId: 'set_talkback',
-						options: { state: 'on' },
-					},
-				],
-				up: [
-					{
-						actionId: 'set_talkback',
-						options: { state: 'off' },
-					},
-				],
-			},
-		],
-		feedbacks: [
-			{
-				feedbackId: 'talkback_enabled',
-				options: {},
-				style: {
-					bgcolor: combineRgb(0, 255, 0),
-					color: combineRgb(0, 0, 0),
-				},
-			},
-		],
+	// Presets are grouped only when they produced something, so the palette
+	// never shows an empty category.
+	const inputDefinitions = [
+		definition(
+			'mutes',
+			'Input Mutes',
+			muteChannels.map((ch) => `mute_input_${ch}`),
+		),
+		definition(
+			'solos',
+			'Input Solos',
+			soloChannels.map((ch) => `solo_input_${ch}`),
+		),
+		definition(
+			'air',
+			'Air Mode',
+			airChannels.map((ch) => `air_${ch}`),
+		),
+		definition(
+			'pad',
+			'Pad',
+			padChannels.map((ch) => `pad_${ch}`),
+		),
+		definition(
+			'mode',
+			'Input Mode',
+			modeChannels.map((ch) => `mode_${ch}`),
+		),
+	].filter(Boolean)
+
+	if (inputDefinitions.length > 0) {
+		categories.push({ id: 'inputs', name: 'Inputs', definitions: inputDefinitions })
 	}
 
-	return {
-		structure: [
-			{
-				id: 'inputs',
-				name: 'Inputs',
-				definitions: [
-					{
-						id: 'mutes',
-						type: 'simple',
-						name: 'Input Mutes',
-						presets: Array.from({ length: 8 }, (_, i) => `mute_input_${i + 1}`),
-					},
-					{
-						id: 'solos',
-						type: 'simple',
-						name: 'Input Solos',
-						presets: Array.from({ length: 8 }, (_, i) => `solo_input_${i + 1}`),
-					},
-					{
-						id: 'phantom',
-						type: 'simple',
-						name: 'Phantom Power',
-						presets: Array.from({ length: 8 }, (_, i) => `phantom_${i + 1}`),
-					},
-					{
-						id: 'air',
-						type: 'simple',
-						name: 'Air Mode',
-						presets: Array.from({ length: 8 }, (_, i) => `air_${i + 1}`),
-					},
-					{
-						id: 'mode',
-						type: 'simple',
-						name: 'Input Mode',
-						presets: Array.from({ length: 8 }, (_, i) => `mode_${i + 1}`),
-					},
-					{
-						id: 'pad',
-						type: 'simple',
-						name: 'Pad',
-						presets: Array.from({ length: 8 }, (_, i) => `pad_${i + 1}`),
-					},
-					{
-						id: 'hpf',
-						type: 'simple',
-						name: 'High Pass Filter',
-						presets: Array.from({ length: 8 }, (_, i) => `hpf_${i + 1}`),
-					},
-				],
-			},
-			{
-				id: 'monitor',
-				name: 'Monitor',
-				definitions: [
-					{
-						id: 'monitor_controls',
-						type: 'simple',
-						name: 'Monitor Controls',
-						presets: ['dim', 'talkback'],
-					},
-				],
-			},
-		],
-		presets,
+	const monitorDefinitions = [definition('monitor_controls', 'Monitor Controls', presets['dim'] ? ['dim'] : [])].filter(
+		Boolean,
+	)
+
+	if (monitorDefinitions.length > 0) {
+		categories.push({ id: 'monitor', name: 'Monitor', definitions: monitorDefinitions })
 	}
+
+	return { structure: categories, presets }
+}
+
+/**
+ * One-based channel numbers whose entry exposes the named control.
+ *
+ * Positions are preserved, so a device that offers a control on only some of
+ * its inputs still gets the right channel number on each button.
+ *
+ * @param {object[]} entries
+ * @param {string} control
+ * @returns {number[]}
+ */
+function channelsWith(entries, control) {
+	const channels = []
+	for (let i = 0; i < entries.length; i++) {
+		if (entries[i]?.[control]) channels.push(i + 1)
+	}
+	return channels
+}
+
+/**
+ * A preset group, or nothing when it would be empty.
+ */
+function definition(id, name, presetIds) {
+	if (presetIds.length === 0) return null
+	return { id, type: 'simple', name, presets: presetIds }
 }

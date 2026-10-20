@@ -4,8 +4,8 @@
  * @author Linus Wileryd
  * @repository https://github.com/lnswlrd/companion-module-focusrite-clarett
  *
- * Protocol: XML messages with "Length=XXXXXX " prefix (6-digit uppercase hex)
- * Port: 49152 (localhost)
+ * Protocol: XML messages with "Length=XXXXXX " prefix (6-digit hex)
+ * Port: assigned from the ephemeral range, located at runtime by port-discovery.js
  *
  * ============================================
  * PROTOCOL REVERSE ENGINEERING SOURCES
@@ -38,6 +38,48 @@ import { EventEmitter } from 'events'
 import net from 'net'
 import { parseStringPromise } from 'xml2js'
 
+/**
+ * Matches the frame header that prefixes every message on the wire:
+ * "Length=XXXXXX " where XXXXXX is the payload length in hex.
+ *
+ * The server replies in lowercase hex even though it accepts uppercase, so the
+ * character class has to cover both. Deliberately not a global regex, so it is
+ * safe to share between .test() and .match() callers.
+ */
+export const FRAME_HEADER_REGEX = /^Length=([0-9A-Fa-f]{6}) /
+
+/**
+ * Wrap an XML payload in the length-prefixed frame the server expects.
+ *
+ * @param {string} xml
+ * @returns {string}
+ */
+export function encodeMessage(xml) {
+	return `Length=${xml.length.toString(16).toUpperCase().padStart(6, '0')} ${xml}`
+}
+
+/**
+ * Device classes this module knows how to drive.
+ *
+ * Clarett and Scarlett expose the same control schema through
+ * FocusriteControlServer, so the same item parsing works for both.
+ */
+export const SUPPORTED_DEVICE_CLASSES = ['Clarett', 'Scarlett']
+
+/**
+ * Whether a parsed device looks like something this module can drive.
+ *
+ * Checks the class attribute first and falls back to the model string, so a
+ * device that omits class still matches on a recognisable model name.
+ *
+ * @param {{ deviceClass?: string, model?: string }} deviceInfo
+ * @returns {boolean}
+ */
+export function isSupportedDevice(deviceInfo) {
+	const haystack = `${deviceInfo?.deviceClass || ''} ${deviceInfo?.model || ''}`.toLowerCase()
+	return SUPPORTED_DEVICE_CLASSES.some((cls) => haystack.includes(cls.toLowerCase()))
+}
+
 export class FocusriteClient extends EventEmitter {
 	constructor(options = {}) {
 		super()
@@ -49,11 +91,20 @@ export class FocusriteClient extends EventEmitter {
 		this.socket = null
 		this.connected = false
 		this.approved = false
+		// Whether the server has told us anything about our own approval yet.
+		// Distinguishes "not approved" from "no answer so far".
+		this.approvalKnown = false
+		// The id the server assigns us in its <client-details> reply. Approval
+		// messages are keyed by this, not by hostname.
+		this.serverClientId = null
 		this.buffer = ''
 		this.devices = new Map()
 		this.deviceState = new Map()
 		this.keepAliveInterval = null
 		this.reconnectTimeout = null
+		// Set while we are tearing the socket down on purpose, so the close
+		// handler does not schedule a reconnect we asked not to happen.
+		this.intentionalClose = false
 
 		// Source name map (source ID -> name like "Analogue 1", "Playback 1")
 		this.sourceNames = new Map()
@@ -69,9 +120,14 @@ export class FocusriteClient extends EventEmitter {
 	connect() {
 		return new Promise((resolve, reject) => {
 			if (this.socket) {
+				// Drop the old socket's listeners first, otherwise its close
+				// event lands on the handlers below and looks like a drop of the
+				// connection we are in the middle of opening.
+				this.socket.removeAllListeners()
 				this.socket.destroy()
 			}
 
+			this.intentionalClose = false
 			this.socket = new net.Socket()
 			this.socket.setEncoding('utf8')
 
@@ -90,7 +146,10 @@ export class FocusriteClient extends EventEmitter {
 			this.socket.on('close', () => {
 				this.connected = false
 				this.approved = false
+				this.approvalKnown = false
+				this.serverClientId = null
 				this.stopKeepAlive()
+				if (this.intentionalClose) return
 				this.emit('disconnected')
 				this.scheduleReconnect()
 			})
@@ -107,20 +166,25 @@ export class FocusriteClient extends EventEmitter {
 	}
 
 	disconnect() {
+		this.intentionalClose = true
 		this.stopKeepAlive()
 		if (this.reconnectTimeout) {
 			clearTimeout(this.reconnectTimeout)
 			this.reconnectTimeout = null
 		}
 		if (this.socket) {
+			this.socket.removeAllListeners()
 			this.socket.destroy()
 			this.socket = null
 		}
 		this.connected = false
 		this.approved = false
+		this.approvalKnown = false
+		this.serverClientId = null
 	}
 
 	scheduleReconnect() {
+		if (this.intentionalClose) return
 		if (this.reconnectTimeout) return
 		this.reconnectTimeout = setTimeout(() => {
 			this.reconnectTimeout = null
@@ -150,8 +214,7 @@ export class FocusriteClient extends EventEmitter {
 		if (!this.socket || !this.connected) {
 			return false
 		}
-		const message = `Length=${xml.length.toString(16).toUpperCase().padStart(6, '0')} ${xml}`
-		this.socket.write(message)
+		this.socket.write(encodeMessage(xml))
 		return true
 	}
 
@@ -191,7 +254,7 @@ export class FocusriteClient extends EventEmitter {
 		// Parse messages: Length=XXXXXX <xml>
 		while (true) {
 			// Look for Length= prefix
-			const lengthMatch = this.buffer.match(/^Length=([0-9A-Fa-f]{6}) /)
+			const lengthMatch = this.buffer.match(FRAME_HEADER_REGEX)
 			if (!lengthMatch) break
 
 			const msgLength = parseInt(lengthMatch[1], 16)
@@ -217,6 +280,14 @@ export class FocusriteClient extends EventEmitter {
 				return
 			}
 
+			// The server answers our handshake with the id it will use to refer
+			// to us from then on, including in approval messages.
+			if (xml.startsWith('<client-details')) {
+				this.serverClientId = xml.match(/id="([^"]*)"/)?.[1] ?? null
+				this.emit('debug', `Server assigned this client id ${this.serverClientId}`)
+				return
+			}
+
 			// Handle device arrival
 			if (xml.includes('<device-arrival>') || xml.includes('<device ')) {
 				await this.parseDeviceArrival(xml)
@@ -236,8 +307,7 @@ export class FocusriteClient extends EventEmitter {
 
 			// Handle approval
 			if (xml.includes('<approval')) {
-				this.approved = true
-				this.emit('approved')
+				this.handleApproval(xml)
 				return
 			}
 
@@ -250,6 +320,56 @@ export class FocusriteClient extends EventEmitter {
 			this.emit('debug', `Unknown message: ${xml.substring(0, 100)}...`)
 		} catch (err) {
 			this.emit('error', err)
+		}
+	}
+
+	/**
+	 * Track our own approval state.
+	 *
+	 * On connect the server reports the state of every client it knows about, one
+	 * <approval> message each, carrying an explicit authorised flag:
+	 *
+	 *   <approval hostname="Focusrite Midi Control" id="15292012315328466575" type="response" authorised="true"/>
+	 *   <approval hostname="Companion-Focusrite"    id="13558620755254330003" type="response" authorised="true"/>
+	 *   <approval hostname="Companion-Focusrite"    id="5178171929872993862"  type="response" authorised="false"/>
+	 *
+	 * Two things matter here. An approval naming somebody else says nothing about
+	 * us, and one naming us may be a refusal, so treating any <approval> as our
+	 * own approval reports a healthy connection while the server quietly discards
+	 * everything we send.
+	 *
+	 * Less obviously, the hostname does not identify us. As above, several clients
+	 * can register the same hostname with different client keys and end up with
+	 * different approval states, so matching on hostname picks an arbitrary one of
+	 * them. The id the server handed us in its <client-details> reply is the only
+	 * reliable identity, so match on that and use the hostname for reporting only.
+	 *
+	 * Emits 'approved' once we are authorised and 'approval-required' while we are
+	 * not, on change only, since this state is repeated on every connect. Until
+	 * the server mentions our id at all, approval stays unknown rather than denied,
+	 * which is the case for a client key the user has not yet responded to.
+	 */
+	handleApproval(xml) {
+		const hostname = xml.match(/hostname="([^"]*)"/)?.[1] ?? ''
+		const id = xml.match(/id="([^"]*)"/)?.[1] ?? ''
+		const authorisedAttr = xml.match(/authori[sz]ed="([^"]*)"/i)?.[1]
+		const authorised = authorisedAttr === 'true'
+
+		if (!this.serverClientId || id !== this.serverClientId) {
+			this.emit('debug', `Approval state for another client "${hostname}" (id ${id}): authorised=${authorised}`)
+			return
+		}
+
+		const previous = this.approvalKnown ? this.approved : null
+		this.approvalKnown = true
+		this.approved = authorised
+
+		if (previous === authorised) return
+
+		if (authorised) {
+			this.emit('approved')
+		} else {
+			this.emit('approval-required', hostname)
 		}
 	}
 
@@ -267,12 +387,27 @@ export class FocusriteClient extends EventEmitter {
 			}
 
 			for (const dev of device) {
-				const deviceId = dev.$.id
+				const attrs = dev.$ || {}
+				const deviceId = attrs.id
+
+				// The server does not send a "name" attribute. Real arrivals look like:
+				//   <device id="1" protocol="USB" model="Scarlett 18i20 (2nd Gen)"
+				//           class="Scarlett" bus-id="0" serial-number="4485" version="2">
+				// The user-facing name lives in the <nickname> item and only arrives
+				// later, in a <set> update, so model is the best name we have up front.
+				const model = attrs.model || ''
+				const deviceClass = attrs.class || ''
 				const deviceInfo = {
 					id: deviceId,
-					name: dev.$.name || 'Unknown',
-					model: dev.$.model || '',
-					serial: dev.$.serial || '',
+					name: model || deviceClass || 'Unknown',
+					model: model,
+					deviceClass: deviceClass,
+					protocol: attrs.protocol || '',
+					serial: attrs['serial-number'] || attrs.serial || '',
+					version: attrs.version || '',
+					// Item id carrying the editable device nickname, when present.
+					nicknameItem: dev.nickname?.$?.id || null,
+					nickname: '',
 					items: new Map(),
 					hardwareInputs: [],
 					mixes: [],
@@ -306,7 +441,9 @@ export class FocusriteClient extends EventEmitter {
 				this.emit('device-arrived', deviceInfo)
 				this.emit(
 					'debug',
-					`Device arrived: ${deviceInfo.name} (${deviceId}) - ${deviceInfo.hardwareInputs.length} inputs, ${deviceInfo.mixes.length} mixes, ${deviceInfo.outputs.length} outputs`,
+					`Device arrived: ${deviceInfo.model || 'unknown model'} class=${deviceInfo.deviceClass || 'unknown'} ` +
+						`serial=${deviceInfo.serial || 'unknown'} (devid ${deviceId}) - ` +
+						`${deviceInfo.hardwareInputs.length} inputs, ${deviceInfo.mixes.length} mixes, ${deviceInfo.outputs.length} outputs`,
 				)
 
 				// Auto-subscribe to device
@@ -453,8 +590,9 @@ export class FocusriteClient extends EventEmitter {
 		const outputElementRegex = /<([\w-]+)([^>]*)>([\s\S]*?)<\/\1>/g
 		let match
 		let index = 0
-		let lastStereoPairMute = null
-		let lastStereoPairVolume = null
+		// Position in deviceInfo.outputs of the most recent left channel, so the
+		// right channel that follows can be paired with it.
+		let lastLeftPosition = null
 		while ((match = outputElementRegex.exec(outXml)) !== null) {
 			const attrs = match[2]
 			const content = match[3]
@@ -482,16 +620,28 @@ export class FocusriteClient extends EventEmitter {
 			const muteMatch = content.match(/<mute[^>]+id="(\d+)"/)
 			if (muteMatch) output.mute = muteMatch[1]
 
-			// Route right channel to left channel's controls (server ignores right channel)
-			if (isRightChannel) {
-				if (lastStereoPairMute) output.mute = lastStereoPairMute
-				if (lastStereoPairVolume) output.volume = lastStereoPairVolume
-			} else {
-				lastStereoPairMute = output.mute || null
-				lastStereoPairVolume = output.volume || null
+			// Whether the pair is linked is its own item, toggled by the STEREO
+			// button in Focusrite Control. Every channel keeps its own volume and
+			// mute; output-controls.js decides at use time whether the pair's left
+			// channel should drive it instead, since the link can change at any
+			// time and the server ignores a right channel's own items only while
+			// linked.
+			const stereoMatch = content.match(/<stereo[^>]+id="(\d+)"/)
+			if (stereoMatch) output.stereo = stereoMatch[1]
+
+			if (!output.volume && !output.mute) continue
+
+			const position = deviceInfo.outputs.length
+			if (isRightChannel && lastLeftPosition !== null) {
+				output.isRight = true
+				output.partner = lastLeftPosition
+				deviceInfo.outputs[lastLeftPosition].partner = position
+				lastLeftPosition = null
+			} else if (!isRightChannel) {
+				lastLeftPosition = position
 			}
 
-			if (output.volume || output.mute) deviceInfo.outputs.push(output)
+			deviceInfo.outputs.push(output)
 		}
 	}
 
@@ -638,6 +788,19 @@ export class FocusriteClient extends EventEmitter {
 						device.items.get(itemId).value = value
 					} else {
 						device.items.set(itemId, { id: itemId, value, name: itemId, type: 'unknown' })
+					}
+
+					// The nickname is the name the user sees in Focusrite Control.
+					// It arrives here rather than on the device element, so keep it
+					// on the device and let listeners refresh any derived naming.
+					if (device.nicknameItem && itemId === device.nicknameItem) {
+						const nickname = value || ''
+						// The server repeats the nickname in more than one update,
+						// so only announce a genuine change.
+						if (nickname !== device.nickname) {
+							device.nickname = nickname
+							this.emit('device-renamed', device)
+						}
 					}
 				}
 
